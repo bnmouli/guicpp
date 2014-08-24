@@ -1,0 +1,128 @@
+$$ -*- mode: c++; -*-
+$$ Copyright 2014 Google Inc. All rights reserved.
+$$
+$$ Licensed under the Apache License, Version 2.0 (the "License");
+$$ you may not use this file except in compliance with the License.
+$$ You may obtain a copy of the License at
+$$
+$$     http://www.apache.org/licenses/LICENSE-2.0
+$$
+$$ Unless required by applicable law or agreed to in writing, software
+$$ distributed under the License is distributed on an "AS IS" BASIS,
+$$ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+$$ See the License for the specific language governing permissions and
+$$ limitations under the License.
+
+$$ This is a Pump source file (http://go/pump).
+$$ Please use Pump to convert.
+$$
+$var MaxArguments=10
+$$
+// Copyright 2014 Google Inc. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+
+// This file contains specialized definitions of FactoryInterface class
+// and its implementation (RealFactory).
+
+#ifndef GUICPP_FACTORY_HELPERS_H_PUMP_
+#define GUICPP_FACTORY_HELPERS_H_PUMP_
+
+#include "guicpp/internal/guicpp_port.h"
+#include "guicpp/internal/guicpp_factory_types.h"
+#include "guicpp/internal/guicpp_inject_util.h"
+#include "guicpp/internal/guicpp_local_context.h"
+#include "guicpp/internal/guicpp_util.h"
+
+namespace guicpp {
+namespace internal {
+$range i 0..MaxArguments
+$for i [[
+$range j 1..i
+$var typename_As = [[$for j [[, typename A$j]]]]
+$var As = [[$for j, [[A$j]]]]
+$var Actuals = [[$for j, [[typename AtUtil::GetTypes<A$j>::ActualType a$j]]]]
+
+
+template <typename R$typename_As>
+class FactoryInterface<R($As)>: public FactoryBase {
+ public:
+  typedef R ReturnType;
+  typedef R (Signature)($Actuals);
+
+  virtual ~FactoryInterface() {}
+  virtual R Get($Actuals) const = 0;
+
+ protected:
+  FactoryInterface() {}
+
+ private:
+  GUICPP_DISALLOW_COPY_AND_ASSIGN_(FactoryInterface);
+};
+]]
+
+
+// R : return type of the function.
+
+$range i 0..MaxArguments
+$for i [[
+$range j 1..i
+$var typename_As = [[$for j [[, typename A$j]]]]
+$var As = [[$for j, [[A$j]]]]
+$var Actuals = [[$for j, [[typename AtUtil::GetTypes<A$j>::ActualType a$j]]]]
+template <typename Annotations, typename FactoryType, typename R$typename_As>
+class RealFactory<Annotations, FactoryType, R($As)>: public FactoryType {
+ public:
+  explicit RealFactory(const Injector* injector): injector_(injector) {}
+  virtual ~RealFactory() {}
+
+  virtual R Get($Actuals) const {
+$range j 1..i
+$for j [[
+
+    FactoryArgumentEntry<typename AtUtil::GetTypes<A$j>::ActualType> entry$j(a$j);
+]]
+
+
+$if i > 0 [[
+
+    const TypeIdArgumentPair argument_list[$i] = {
+$range j 1..i
+$for j [[
+
+      { InjectorUtil::GetFactoryArgsBindId<A$j>(), &entry$j },
+]]
+
+    };
+
+]] $else [[
+    const TypeIdArgumentPair* argument_list = NULL;
+
+]]
+
+    LocalContext local_context(argument_list, $i);
+    InjectorUtil inject_util(injector_);
+    return inject_util.GetActualType<Annotations, R>(&local_context);
+  }
+
+ private:
+  const Injector* injector_;
+};
+
+
+]]
+}  // namespace internal
+}  // namespace guicpp
+
+#endif  // GUICPP_FACTORY_HELPERS_H_PUMP_

@@ -1,0 +1,232 @@
+$$ -*- mode: c++; -*-
+$$ Copyright 2014 Google Inc. All rights reserved.
+$$
+$$ Licensed under the Apache License, Version 2.0 (the "License");
+$$ you may not use this file except in compliance with the License.
+$$ You may obtain a copy of the License at
+$$
+$$     http://www.apache.org/licenses/LICENSE-2.0
+$$
+$$ Unless required by applicable law or agreed to in writing, software
+$$ distributed under the License is distributed on an "AS IS" BASIS,
+$$ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+$$ See the License for the specific language governing permissions and
+$$ limitations under the License.
+
+$$ This is a Pump source file (http://go/pump).
+$$ Please use Pump to convert.
+$$
+$$ NOTE: The script won't work properly if MaxAnnotations < 1
+$var MaxAnnotations=2
+$$
+// Copyright 2014 Google Inc. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+
+// Defines "At" class. An infrastructure for annotating arguments.
+// Though the "At" class has some public APIs, User is not expected
+// use any of that. This class must only be used as syntax for
+// specifying annotations.
+//
+// Usage:
+//       At<comma-separated-annotations, argument-type> argument-name
+//
+//      comma-separated-annotations: List of annotations. Must have at least
+//          one annotation and there can't be multiple annotations belonging
+//          to the same annotation-base-class. That is, each annotation must
+//          be of different annotation-base-type. Currently there are only two
+//          annotation-base-types (injection-type and labels).
+//
+//      argument-type: Type of the constructor argument.
+//
+//      argument-name: Name of the argument. It is optional to put the name.
+//
+// Example:
+//     GUICPP_INJECT_CTOR(NotifyRequestHandler, (
+//       At<Assisted, HttpRequest*> request,
+//       At<HighPriorityNotifierLabel, Notifier*> high_priority_notifier,
+//       At<ForWritingHttpResponse, Assisted, OutputStream*> response));
+//
+//     The intent of this example is to show the syntax of annotation.
+//     The description of annotation is not important to understand this.
+//     However a brief description is given below just FYI.
+//
+//     Here:
+//       "Assisted" is a Guic++ defined annotation. It is used to annotate
+//       arguments, whose value must be taken from a factory parameter (see
+//       comments on guicpp::Factory in factory.h for information on factory
+//       parameters).
+//
+//       HighPriorityNotifierLabel is a user created label. Labels are used
+//       to bind different classes or values to the same argument type
+//       depending on the context or purpose (multibinding).
+
+// Implementation Details:
+// -----------------------
+//  The "At" class:
+//    The "At" is a class with $(MaxAnnotations+1) template arguments. All template arguments
+//    except for the last one match the annotations passed by the user and
+//    the last argument matches to constructor argument-type.
+//
+//    Annotating constructor arguments in GUICPP_INJECT_CTOR using "At"
+//    changes their types as seen by Guic++. For instance, the type of
+//    argument "request" in the above example, as seen by Guic++ is
+//    "At<Assisted, HttpRequest*>" and not "HttpRequest*".
+//
+//    Guic++ internally refers to a typedef called "ArgType", defined in the
+//    "At" class to get the actual type of the constructor argument. Another
+//    typedef called "Annotations" is used to get the specified annotations.
+//
+//  Annotation Base Class:
+//    Annotations are the classes that are inherited from a base class called
+//    annotation-base-class.
+//
+//    All annotations that are inherited from one annotation-base-class are
+//    said to be annotations of that annotation-base-type. For instance, all
+//    user defined labels are of annotation-base-type called "Label", since
+//    they all are inherited from "Label" class.
+//
+//    The annotation-base-classes contain following typedefs.
+//      1. AnnotationType: This is a typedef to self.
+//            This is used to determine annotation-base-class of annotations.
+//            Given an annotation L, L::AnnotationType refers to its
+//            annotation-base-class.
+//
+//      2. AnnotationDefaultValue: The type of default annotation assumed
+//            for that annotation-base-type.
+//
+//    Example:
+//      class Label {
+//       public:
+//        typedef Label AnnotationType;
+//        typedef NotLabelled AnnotationDefaultValue;
+//      };
+//
+//  The term "annotation framework" refers to the set classes defined in this
+//  file and classes such as AtUtil defined in guicpp_util.h.
+//
+//  Annotation framework does not provide separate API for each annotation;
+//  Instead, it implements compile time map of annotation-base-class to the
+//  user specified annotation.
+//
+//  For example,
+//       At<HighPriorityNotifierLabel, Notifier*>
+//
+//  This defines a map with single entry that maps "guicpp::Label" type to
+//  "HighPriorityNotifierLabel" type. This makes annotation framework simpler
+//  by making it independent of annotation-base-classes in Guic++. That is,
+//  we don't have to make any change to annotation framework if we add new
+//  annotation-base-type in some later version of Guic++. All that framework
+//  cares about is the maximum number of annotations that can be specified
+//  by the user (currently it is $MaxAnnotations).
+
+#ifndef GUICPP_AT_H_
+#define GUICPP_AT_H_
+
+#include "guicpp/internal/guicpp_port.h"
+#include "guicpp/internal/guicpp_types.h"
+
+namespace guicpp {
+namespace internal {
+// NoArg is used as the default value for At's template arguments.
+// This lets the user to use At with fewer template arguments.
+class NoArg {
+ private:
+  GUICPP_DISALLOW_IMPLICIT_CONSTRUCTORS_(NoArg);
+};
+
+// Annotation entry baseclass
+template <typename Type>
+class AtEntryBase { };
+
+// Annotation entry
+template <typename Lookup, typename Type, typename Value>
+class AtEntry: public AtEntryBase<Type> { };
+
+// If Lookup type is same as annotation type, define Value
+template <typename Lookup, typename Value>
+class AtEntry<Lookup, Lookup, Value>: public AtEntryBase<Lookup> {
+ public:
+  typedef Value type;
+};
+
+// Invalid annotation, used when less than max annotations are specified.
+// Templated with int to make unique types.
+template <int I>
+class InvalidAt {
+ public:
+  typedef InvalidAt AnnotationType;
+};
+
+
+$range j 1..MaxAnnotations
+$var typename_As = [[$for j, [[typename A$j = InvalidAt<$j>]]]]
+$var AtEntries = [[$for j,
+    [[public AtEntry<Lookup, typename A$j::AnnotationType, A$j>]]]]
+$var As = [[$for j [[, A$j]]]]
+template <$typename_As >
+class Annotations {
+ public:
+  // Entries is a class inherited from AtEntry corresponding to each specified 
+  // annotation. If user has specified an annotation of type B and if Lookup is
+  // B, corresponding base class defines a typedef called "type" which is an
+  // alias of specfied annotation and that can be referred as Entries<B>::type.
+  // However, we need to ensure an annotation of a type B is specified by user
+  // before trying to refer "Entries<B>::type".
+  template <typename Lookup>
+  class Entries:
+    $AtEntries {};
+};
+
+}  // namespace internal
+
+$range j 3..MaxAnnotations
+$var typename_As = [[$for j [[, typename A$j = internal::NoArg]]]]
+$var As = [[$for j [[, A$j]]]]
+
+// Atleast 2 template arguments are mandatory as At will contain at least one
+// annotation and the argument type.
+template <typename A1, typename A2$typename_As, typename T = internal::NoArg>
+class At: public internal::AtBaseClass {
+ public:
+  typedef T ArgType;
+  typedef internal::Annotations<A1, A2$As> Annotations;
+
+ private:
+  GUICPP_DISALLOW_IMPLICIT_CONSTRUCTORS_(At);
+};
+
+// The following are the specialized implementation of the "At" class for fewer
+// template arguments. This lets user to use "At" with fewer annotations.
+$range i 1..MaxAnnotations-1
+$for i [[
+$range j 1..i
+$var typename_As = [[$for j, [[typename A$j]]]]
+$var As = [[$for j, [[A$j]]]]
+
+template <$typename_As, typename T>
+class At<$As, T>: public internal::AtBaseClass {
+ public:
+  typedef T ArgType;
+  typedef internal::Annotations<$As> Annotations;
+
+ private:
+  GUICPP_DISALLOW_IMPLICIT_CONSTRUCTORS_(At);
+};
+
+]]
+
+}  // namespace guicpp
+
+#endif  // GUICPP_AT_H_

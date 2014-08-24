@@ -1,0 +1,96 @@
+$$ -*- mode: c++; -*-
+$$ Copyright 2014 Google Inc. All rights reserved.
+$$
+$$ Licensed under the Apache License, Version 2.0 (the "License");
+$$ you may not use this file except in compliance with the License.
+$$ You may obtain a copy of the License at
+$$
+$$     http://www.apache.org/licenses/LICENSE-2.0
+$$
+$$ Unless required by applicable law or agreed to in writing, software
+$$ distributed under the License is distributed on an "AS IS" BASIS,
+$$ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+$$ See the License for the specific language governing permissions and
+$$ limitations under the License.
+
+$$ This is a Pump source file (http://go/pump).
+$$ Please use Pump to convert.
+$$
+$var MaxArguments=10
+$$
+// Copyright 2014 Google Inc. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+
+// This file contains specialized definitions of ProviderGet class.
+
+#ifndef GUICPP_PROVIDER_HELPERS_H_PUMP_
+#define GUICPP_PROVIDER_HELPERS_H_PUMP_
+
+#include "guicpp/internal/guicpp_port.h"
+#include "guicpp/internal/guicpp_inject_util.h"
+#include "guicpp/internal/guicpp_provider_types.h"
+#include "guicpp/internal/guicpp_util.h"
+
+namespace guicpp {
+namespace internal {
+class LocalContext;
+$range i 0..MaxArguments
+$for i [[
+$range j 1..i
+$var typename_As = [[$for j [[, typename A$j]]]]
+$var As = [[$for j, [[A$j]]]]
+$var Actuals = [[$for j, [[typename AtUtil::GetTypes<A$j>::ActualType a$j]]]]
+$var Get = [[$for j, [[
+
+      inject_util.GetWithContext<A$j>(local_context)]]]]
+
+
+template <typename R$typename_As>
+class ProviderGet<R($As)>: public ProviderBase {
+ public:
+  typedef R ReturnType;
+  typedef R (Signature)($Actuals);
+
+  virtual ~ProviderGet() {}
+  virtual R Get($Actuals) = 0;
+
+ protected:
+  ProviderGet() {}
+
+ private:
+  static R GetInvoker(
+      const Injector* injector,
+      const LocalContext* local_context,
+      ProviderGet* provider) {
+$if i > 0 [[
+
+    InjectorUtil inject_util(injector);
+]]
+
+    return provider->Get($Get);
+  }
+
+  template <typename T>
+  friend class AbstractProvider;
+
+  GUICPP_DISALLOW_COPY_AND_ASSIGN_(ProviderGet);
+};
+]]
+
+
+}  // namespace internal
+}  // namespace guicpp
+
+#endif  // GUICPP_PROVIDER_HELPERS_H_PUMP_

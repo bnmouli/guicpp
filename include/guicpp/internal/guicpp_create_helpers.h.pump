@@ -1,0 +1,83 @@
+$$ -*- mode: c++; -*-
+$$ Copyright 2014 Google Inc. All rights reserved.
+$$
+$$ Licensed under the Apache License, Version 2.0 (the "License");
+$$ you may not use this file except in compliance with the License.
+$$ You may obtain a copy of the License at
+$$
+$$     http://www.apache.org/licenses/LICENSE-2.0
+$$
+$$ Unless required by applicable law or agreed to in writing, software
+$$ distributed under the License is distributed on an "AS IS" BASIS,
+$$ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+$$ See the License for the specific language governing permissions and
+$$ limitations under the License.
+
+$$ This is a Pump source file (http://go/pump). Please use Pump to convert
+$$ it to gmock-generated-function-mockers.h.
+$$
+$var MaxArgs = 10  $$ The maximum arguments
+// Copyright 2014 Google Inc. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+
+// Helper functions used for creating an instance of user defined class.
+
+#ifndef GUICPP_CREATE_HELPERS_H_PUMP_
+#define GUICPP_CREATE_HELPERS_H_PUMP_
+
+#include "guicpp/internal/guicpp_port.h"
+#include "guicpp/internal/guicpp_inject_util.h"
+#include "guicpp/internal/guicpp_types.h"
+
+namespace guicpp {
+namespace internal {
+class LocalContext;
+$range i 1..MaxArgs+1
+
+
+// These helper functions invoke the appropriate constructor after
+// instantiating all of the target object's dependencies.
+class CreateHelpers {
+ public:
+$for i  [[
+$range j 1..i-1
+$var typename_As = [[$for j [[, typename A$j]]]]
+$var As = [[$for j, [[A$j]]]]
+$var Get = [[$for j, [[
+
+      inject_util.GetWithContext<A$j>(local_context)]]]]
+
+  template <typename T$typename_As>
+  static T* Create(const Injector* injector,
+                   const LocalContext* local_context,
+                   TypeKey<T* (*)($As)> fp) {
+$if i > 1 [[
+
+    InjectorUtil inject_util(injector);
+]]
+
+    return new T($Get);
+  }
+
+]]
+
+ private:
+  GUICPP_DISALLOW_IMPLICIT_CONSTRUCTORS_(CreateHelpers);
+};
+
+}  // namespace internal
+}  // namespace guicpp
+
+#endif  // GUICPP_CREATE_HELPERS_H_PUMP_
